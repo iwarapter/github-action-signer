@@ -44,7 +44,7 @@ func main() {
 			})
 		}
 	}
-	if len(*changes) > 0 {
+	if len(*changes) == 0 {
 		fmt.Printf("no changes, exiting")
 		os.Exit(0)
 	}
@@ -56,6 +56,13 @@ func main() {
 
 	client := githubv4.NewClient(httpClient)
 
+	var branchName string
+	if val, ok := os.LookupEnv("GITHUB_HEAD_REF"); ok {
+		branchName = val
+	} else {
+		branchName = os.Getenv("GITHUB_REF_NAME")
+	}
+
 	var m struct {
 		CreateCommitOnBranch struct {
 			Commit struct {
@@ -66,7 +73,7 @@ func main() {
 	input := githubv4.CreateCommitOnBranchInput{
 		Branch: githubv4.CommittableBranch{
 			RepositoryNameWithOwner: githubv4.NewString(githubv4.String(os.Getenv("GITHUB_REPOSITORY"))),
-			BranchName:              githubv4.NewString(githubv4.String(os.Getenv("GITHUB_REF_NAME"))),
+			BranchName:              githubv4.NewString(githubv4.String(branchName)),
 		},
 		Message: githubv4.CommitMessage{Headline: "this is a test"},
 		FileChanges: &githubv4.FileChanges{
