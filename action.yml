@@ -1,6 +1,13 @@
 # action.yml
 name: 'Git Commit Signer'
 description: 'Pushes and locally modified files back to the target branch'
+inputs:
+  commit-message:  # id of input
+    description: 'The commit message used'
+    required: false
+    default: 'updated with commit signer'
 runs:
   using: 'docker'
   image: 'Dockerfile'
+  args:
+    - ${{ inputs.commit-message }}

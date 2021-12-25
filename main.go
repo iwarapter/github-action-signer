@@ -63,6 +63,12 @@ func main() {
 		branchName = os.Getenv("GITHUB_REF_NAME")
 	}
 
+	message := "updated with commit signer"
+	args := os.Args
+	if len(args) > 1 {
+		message = args[1]
+	}
+
 	var m struct {
 		CreateCommitOnBranch struct {
 			Commit struct {
@@ -75,7 +81,7 @@ func main() {
 			RepositoryNameWithOwner: githubv4.NewString(githubv4.String(os.Getenv("GITHUB_REPOSITORY"))),
 			BranchName:              githubv4.NewString(githubv4.String(branchName)),
 		},
-		Message: githubv4.CommitMessage{Headline: "this is a test"},
+		Message: githubv4.CommitMessage{Headline: githubv4.String(message)},
 		FileChanges: &githubv4.FileChanges{
 			Additions: changes,
 		},
