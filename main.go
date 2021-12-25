@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"github.com/go-git/go-git/v5"
 	"github.com/shurcooL/githubv4"
 	"golang.org/x/oauth2"
+	"io/ioutil"
 	"log"
 	"os"
 )
@@ -30,6 +30,17 @@ func main() {
 		log.Fatalf("unable to open repository: %s", err)
 	}
 	log.Printf("status: %s", s.String())
+	changes := &[]githubv4.FileAddition{}
+	for name, status := range s {
+		if status.Worktree == git.Modified {
+			b, _ := ioutil.ReadFile(name)
+			content := base64.StdEncoding.EncodeToString(b)
+			*changes = append(*changes, githubv4.FileAddition{
+				Path:     githubv4.String(name),
+				Contents: githubv4.Base64String(content),
+			})
+		}
+	}
 
 	src := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: os.Getenv("GITHUB_TOKEN")},
@@ -38,45 +49,29 @@ func main() {
 
 	client := githubv4.NewClient(httpClient)
 
-	branch := "main"
-
 	var m struct {
-		AddReaction struct {
-			Reaction struct {
-				Content githubv4.ReactionContent
+		CreateCommitOnBranch struct {
+			Commit struct {
+				Url githubv4.ID
 			}
-			Subject struct {
-				ID githubv4.ID
-			}
-		} `graphql:"addReaction(input: $input)"`
+		} `graphql:"createCommitOnBranch(input: $input)"`
 	}
 	input := githubv4.CreateCommitOnBranchInput{
 		Branch: githubv4.CommittableBranch{
-			RepositoryNameWithOwner: githubv4.NewString("main"),
-			BranchName:              githubv4.NewString(githubv4.String(branch)),
+			RepositoryNameWithOwner: githubv4.NewString(githubv4.String(os.Getenv("GITHUB_REPOSITORY"))),
+			BranchName:              githubv4.NewString(githubv4.String(os.Getenv("GITHUB_REF_NAME"))),
 		},
 		Message: githubv4.CommitMessage{Headline: "this is a test"},
 		FileChanges: &githubv4.FileChanges{
-			Additions: &[]githubv4.FileAddition{
-				{
-					Path:     "example.txt",
-					Contents: githubv4.Base64String(base64.RawStdEncoding.EncodeToString([]byte("foo"))),
-				},
-			},
+			Additions: changes,
 		},
-		ExpectedHeadOid: githubv4.GitObjectID(rev.String()),
+		ExpectedHeadOid: githubv4.GitObjectID(rev.Hash().String()),
 	}
-	//input := githubv4.AddReactionInput{
-	//	SubjectID: "targetIssue.ID", // ID of the target issue from a previous query.
-	//	Content:   githubv4.ReactionContentHooray,
-	//}
 
 	err = client.Mutate(context.Background(), &m, input, nil)
 	if err != nil {
-		// Handle error.
+		log.Fatalf("unable to mutate: %s", err)
 	}
-	fmt.Printf("Added a %v reaction to subject with ID %#v!\n", m.AddReaction.Reaction.Content, m.AddReaction.Subject.ID)
+	log.Printf("mutation complete: %s", m.CreateCommitOnBranch.Commit.Url)
 
-	// Output:
-	// Added a HOORAY reaction to subject with ID "MDU6SXNzdWUyMTc5NTQ0OTc="!
 }

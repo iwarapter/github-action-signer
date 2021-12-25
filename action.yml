@@ -1,0 +1,6 @@
+# action.yml
+name: 'Git Commit Signer'
+description: 'Pushes and locally modified files back to the target branch'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
