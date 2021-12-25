@@ -3,33 +3,36 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"github.com/go-git/go-git/v5"
 	"github.com/shurcooL/githubv4"
 	"golang.org/x/oauth2"
 	"io/ioutil"
-	"log"
 	"os"
 )
 
 func main() {
 	r, err := git.PlainOpen(".")
 	if err != nil {
-		log.Fatalf("unable to open repository: %s", err)
+		fmt.Printf("unable to open repository: %s", err)
+		os.Exit(1)
 	}
 
 	w, err := r.Worktree()
 	if err != nil {
-		log.Fatalf("unable to open repository: %s", err)
+		fmt.Printf("unable to open repository: %s", err)
+		os.Exit(1)
 	}
 	rev, err := r.Head()
 	if err != nil {
-		log.Fatalf("unable to find HEAD revision: %s", err)
+		fmt.Printf("unable to find HEAD revision: %s", err)
+		os.Exit(1)
 	}
 	s, err := w.Status()
 	if err != nil {
-		log.Fatalf("unable to open repository: %s", err)
+		fmt.Printf("unable to open repository: %s", err)
+		os.Exit(1)
 	}
-	log.Printf("status: %s", s.String())
 	changes := &[]githubv4.FileAddition{}
 	for name, status := range s {
 		if status.Worktree == git.Modified {
@@ -40,6 +43,10 @@ func main() {
 				Contents: githubv4.Base64String(content),
 			})
 		}
+	}
+	if len(*changes) > 0 {
+		fmt.Printf("no changes, exiting")
+		os.Exit(0)
 	}
 
 	src := oauth2.StaticTokenSource(
@@ -70,8 +77,9 @@ func main() {
 
 	err = client.Mutate(context.Background(), &m, input, nil)
 	if err != nil {
-		log.Fatalf("unable to mutate: %s", err)
+		fmt.Printf("unable to mutate: %s", err)
+		os.Exit(1)
 	}
-	log.Printf("mutation complete: %s", m.CreateCommitOnBranch.Commit.Url)
+	fmt.Printf("mutation complete: %s", m.CreateCommitOnBranch.Commit.Url)
 
 }
